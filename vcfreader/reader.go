@@ -11,6 +11,32 @@ import (
 	"strings"
 )
 
+func ParseFromFileErr(filename string) chan []string {
+
+	file, err := os.Open(filename)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+	defer file.Close()
+
+	if !strings.HasSuffix(filename, ".gz") {
+		return VCFParser(file)
+	}
+
+	gz, err := gzip.NewReader(file)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+
+	defer gz.Close()
+	return VCFParser(gz)
+
+}
+
 func ParseFromFile(filename string) chan []string {
 
 	file, err := os.Open(filename)

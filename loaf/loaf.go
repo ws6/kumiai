@@ -2,7 +2,7 @@ package loaf
 
 import (
 	"fmt"
-	"io"
+
 	"strconv"
 	"strings"
 
@@ -64,19 +64,29 @@ func isInfilter(s string, filters []string) bool {
 	return false
 }
 
-func LoafOfVcf(file io.Reader, params *LoafParams) *Loaf {
+func GetLoafFromFile(filename string, params *LoafParams) *Loaf {
+
+	ch := vcfreader.ParseFromFile(filename)
+	return LoafOfVcf(ch, params)
+}
+
+func LoafOfVcf(ch chan []string, params *LoafParams) *Loaf {
 	ret := new(Loaf)
 	if params == nil {
 		params = NewDefaultLoafParams()
 	}
-	rows := vcfreader.VCFParser(file)
-	for row := range rows {
+
+	for row := range ch {
+
 		if len(row) < 10 {
 			continue
 		}
+
 		infoField := row[7]
+
 		if f, err := getFloatFromInfoFiled(`DP`, infoField); err == nil {
 			if f < params.ReadDepthCutOff {
+				fmt.Println(`DP`, f)
 				continue
 			}
 		}
@@ -88,10 +98,6 @@ func LoafOfVcf(file io.Reader, params *LoafParams) *Loaf {
 		formatValueField := row[9]
 		// GT:SQ:AD:AF:F1R2:F2R1:DP:SB:MB	0/1:12.58:2,1:0.333:1,0:1,1:3:1,1,1,0:2,0,1,0
 		sp2 := strings.Split(formatValueField, ":")
-		if len(sp2) < 9 {
-
-			continue
-		}
 
 		af, err := strconv.ParseFloat(sp2[3], 64)
 		if err == nil {
