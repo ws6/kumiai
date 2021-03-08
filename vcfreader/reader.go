@@ -61,25 +61,27 @@ func ParseFromFile(filename string) chan []string {
 
 func VCFParser(file io.Reader) chan []string {
 	ch := make(chan []string, 1000)
-	defer close(ch)
+
 	scanner := bufio.NewScanner(file)
+	go func() {
+		defer close(ch)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, `#`) {
+				continue
+			}
 
-	for scanner.Scan() {
+			sp := strings.Split(line, "\t")
 
-		line := scanner.Text()
-		if strings.HasPrefix(line, `#`) {
+			if len(sp) < 8 {
+				continue
+			}
+
+			ch <- sp
 			continue
+
 		}
+	}()
 
-		sp := strings.Split(line, "\t")
-
-		if len(sp) < 8 {
-			continue
-		}
-
-		ch <- sp
-		continue
-
-	}
 	return ch
 }
