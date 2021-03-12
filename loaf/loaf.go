@@ -98,7 +98,7 @@ func LoafOfVcf(ch chan []string, params *LoafParams) *Loaf {
 		formatValueField := row[9]
 		// GT:SQ:AD:AF:F1R2:F2R1:DP:SB:MB	0/1:12.58:2,1:0.333:1,0:1,1:3:1,1,1,0:2,0,1,0
 		sp2 := strings.Split(formatValueField, ":")
-		if len(sp2) < 3 {
+		if len(sp2) < 4 {
 			continue
 		}
 		af, err := strconv.ParseFloat(sp2[3], 64)
