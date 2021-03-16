@@ -3,9 +3,9 @@ package vcfreader
 import (
 	"bufio"
 	"compress/gzip"
-
 	"log"
 	"os"
+	"sync"
 
 	"io"
 	"strings"
@@ -59,8 +59,25 @@ func ParseFromFile(filename string) chan []string {
 
 }
 
+var GetBatchSize, SetBatchSize = func() (
+	func() int,
+	func(int),
+) {
+
+	batchSize := 1000
+	var lock = &sync.Mutex{}
+	return func() int {
+			return batchSize
+		},
+		func(bs int) {
+			lock.Lock()
+			batchSize = bs
+			lock.Unlock()
+		}
+}()
+
 func VCFParser(file io.Reader) chan []string {
-	ch := make(chan []string, 1000)
+	ch := make(chan []string, GetBatchSize())
 
 	scanner := bufio.NewScanner(file)
 	go func() {
