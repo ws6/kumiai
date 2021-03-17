@@ -226,14 +226,14 @@ func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
 		ret.FilteredAfMedian = f
 	}
 
-	if f, err := stats.Percentile(
+	if f, err := Percentile(
 		highaf,
 		params.HighAfPercent,
 	); err == nil {
 		ret.ALTPercentile = f
 	}
 
-	if f, err := stats.Percentile(
+	if f, err := Percentile(
 		lowaf,
 		params.LowAfPercent,
 	); err == nil {

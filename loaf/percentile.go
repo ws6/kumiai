@@ -52,9 +52,11 @@ func Percentile(input []float64, percent float64) (percentile float64, err error
 
 		// Convert float to int via truncation
 		i := int(index)
+		frac := index - float64(i)
 
 		// Find the average of the index and following values
 		percentile = (c[i-1] + c[i]) / 2.
+		percentile = frac*(c[i]-c[i-1]) + c[i-1]
 
 	} else {
 		fmt.Println(` index out of range `, index)
