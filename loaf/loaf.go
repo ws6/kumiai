@@ -2,10 +2,12 @@ package loaf
 
 import (
 	"fmt"
+	"os"
 
 	"strconv"
 	"strings"
 
+	"github.com/montanaflynn/stats"
 	"github.com/ws6/kumiai/vcfreader"
 )
 
@@ -22,11 +24,23 @@ type LoafParams struct {
 	ReadDepthCutOff       float64
 	Filters               []string
 	AlleleFrequencyCutoff float64
+
+	LowAfFilter float64 //default 0.15
+
+	HighAfPercent float64
+	LowAfPercent  float64
+
+	NumDataPointsDiscard int
 }
 
 type Loaf struct {
 	Average float64
 	Count   int64
+
+	REFPercentile    float64
+	ALTPercentile    float64
+	ALTREFDiff       float64
+	FilteredAfMedian float64
 }
 
 func NewDefaultLoafParams() *LoafParams {
@@ -35,6 +49,11 @@ func NewDefaultLoafParams() *LoafParams {
 		ReadDepthCutOff:       DEFAULT_READ_DEPTH_CUTOFF,
 		Filters:               []string{DEFAULT_FILTER},
 		AlleleFrequencyCutoff: DEFAULT_ALLELE_FREQUENCY_CUTOFF,
+
+		HighAfPercent:        75,
+		LowAfPercent:         25,
+		LowAfFilter:          float64(0.15),
+		NumDataPointsDiscard: 3,
 	}
 }
 
@@ -68,6 +87,12 @@ func GetLoafFromFile(filename string, params *LoafParams) *Loaf {
 
 	ch := vcfreader.ParseFromFile(filename)
 	return LoafOfVcf(ch, params)
+}
+
+func GetLoafFromFileV2(filename string, params *LoafParams) *Loaf {
+
+	ch := vcfreader.ParseFromFile(filename)
+	return LoafOfVcfV2(ch, params)
 }
 
 func LoafOfVcf(ch chan []string, params *LoafParams) *Loaf {
@@ -115,5 +140,105 @@ func LoafOfVcf(ch chan []string, params *LoafParams) *Loaf {
 	if ret.Count != 0 {
 		ret.Average /= float64(ret.Count)
 	}
+	return ret
+}
+
+//v2 added the new values
+func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
+	ret := new(Loaf)
+
+	ret.REFPercentile = 1
+	ret.ALTPercentile = 1
+	ret.FilteredAfMedian = 1
+	if params == nil {
+		params = NewDefaultLoafParams()
+	}
+
+	highaf := []float64{}
+	lowaf := []float64{}
+
+	for row := range ch {
+
+		if len(row) < 10 {
+			continue
+		}
+
+		infoField := row[7]
+		if f, err := getFloatFromInfoFiled(`DP`, infoField); err == nil {
+			if f < params.ReadDepthCutOff {
+				fmt.Println(`DP`, f)
+				continue
+			}
+		}
+		filtered := row[6]
+		if !isInfilter(filtered, params.Filters) {
+			continue
+		}
+
+		formatValueField := row[9]
+		// GT:SQ:AD:AF:F1R2:F2R1:DP:SB:MB	0/1:12.58:2,1:0.333:1,0:1,1:3:1,1,1,0:2,0,1,0
+		sp2 := strings.Split(formatValueField, ":")
+		if len(sp2) < 4 {
+
+			continue
+		}
+		af, err := strconv.ParseFloat(sp2[3], 64)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "strconv.ParseFloat:%s", err.Error())
+			continue
+		}
+
+		if af <= params.LowAfFilter {
+			continue
+		}
+
+		if af > params.AlleleFrequencyCutoff {
+			highaf = append(highaf, af)
+		}
+
+		if af <= params.AlleleFrequencyCutoff {
+			lowaf = append(lowaf, af)
+		}
+
+		ret.Count++
+		ret.Average += af
+
+	}
+	if ret.Count != 0 {
+		ret.Average /= float64(ret.Count)
+	}
+	allaf := []float64{}
+	allaf = append(allaf, highaf...)
+	allaf = append(allaf, lowaf...)
+
+	if f, err := stats.Median(allaf); err == nil {
+		ret.FilteredAfMedian = f
+	}
+
+	if len(highaf) <= params.NumDataPointsDiscard {
+		return ret
+	}
+
+	if f, err := stats.Percentile(
+		highaf,
+		params.HighAfPercent,
+	); err == nil {
+		ret.REFPercentile = f
+	}
+
+	if len(lowaf) <= params.NumDataPointsDiscard {
+		return ret
+	}
+
+	if f, err := stats.Percentile(
+		lowaf,
+		params.LowAfPercent,
+	); err == nil {
+		ret.ALTPercentile = f
+	}
+
+	ret.ALTREFDiff = ret.ALTPercentile - ret.REFPercentile
+	//TODO percentile calculate
+
 	return ret
 }
