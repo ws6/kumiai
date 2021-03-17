@@ -51,8 +51,8 @@ func NewDefaultLoafParams() *LoafParams {
 		Filters:               []string{DEFAULT_FILTER},
 		AlleleFrequencyCutoff: DEFAULT_ALLELE_FREQUENCY_CUTOFF,
 
-		HighAfPercent:        75,
-		LowAfPercent:         25,
+		HighAfPercent:        25,
+		LowAfPercent:         75,
 		LowAfFilter:          float64(0.15),
 		NumDataPointsDiscard: 3,
 	}
@@ -211,10 +211,10 @@ func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
 		ret.Average /= float64(ret.Count)
 	}
 
-	if len(lowaf) <= params.NumDataPointsDiscard {
+	if len(lowaf) < params.NumDataPointsDiscard {
 		lowaf = []float64{}
 	}
-	if len(highaf) <= params.NumDataPointsDiscard {
+	if len(highaf) < params.NumDataPointsDiscard {
 		highaf = []float64{}
 	}
 
