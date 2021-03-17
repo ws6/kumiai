@@ -41,6 +41,7 @@ type Loaf struct {
 	ALTPercentile    float64
 	ALTREFDiff       float64
 	FilteredAfMedian float64
+	OutLayerCount    int
 }
 
 func NewDefaultLoafParams() *LoafParams {
@@ -147,9 +148,9 @@ func LoafOfVcf(ch chan []string, params *LoafParams) *Loaf {
 func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
 	ret := new(Loaf)
 
-	ret.REFPercentile = 1
-	ret.ALTPercentile = 1
-	ret.FilteredAfMedian = 1
+	// ret.REFPercentile = 1
+	// ret.ALTPercentile = 1
+	// ret.FilteredAfMedian = 0
 	if params == nil {
 		params = NewDefaultLoafParams()
 	}
@@ -189,14 +190,15 @@ func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
 		}
 
 		if af <= params.LowAfFilter {
+			ret.OutLayerCount++
 			continue
 		}
 
-		if af > params.AlleleFrequencyCutoff {
+		if af >= params.AlleleFrequencyCutoff {
 			highaf = append(highaf, af)
 		}
 
-		if af <= params.AlleleFrequencyCutoff {
+		if af < params.AlleleFrequencyCutoff {
 			lowaf = append(lowaf, af)
 		}
 
@@ -204,9 +206,18 @@ func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
 		ret.Average += af
 
 	}
+
 	if ret.Count != 0 {
 		ret.Average /= float64(ret.Count)
 	}
+
+	if len(lowaf) <= params.NumDataPointsDiscard {
+		lowaf = []float64{}
+	}
+	if len(highaf) <= params.NumDataPointsDiscard {
+		highaf = []float64{}
+	}
+
 	allaf := []float64{}
 	allaf = append(allaf, highaf...)
 	allaf = append(allaf, lowaf...)
@@ -215,30 +226,32 @@ func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
 		ret.FilteredAfMedian = f
 	}
 
-	if len(highaf) <= params.NumDataPointsDiscard {
-		return ret
-	}
-
 	if f, err := stats.Percentile(
 		highaf,
 		params.HighAfPercent,
 	); err == nil {
-		ret.REFPercentile = f
-	}
-
-	if len(lowaf) <= params.NumDataPointsDiscard {
-		return ret
+		ret.ALTPercentile = f
 	}
 
 	if f, err := stats.Percentile(
 		lowaf,
 		params.LowAfPercent,
 	); err == nil {
-		ret.ALTPercentile = f
+		ret.REFPercentile = f
 	}
 
 	ret.ALTREFDiff = ret.ALTPercentile - ret.REFPercentile
-	//TODO percentile calculate
+
+	if len(highaf) == 0 {
+		ret.ALTREFDiff = ret.REFPercentile
+	}
+	if len(lowaf) == 0 {
+		ret.ALTREFDiff = ret.ALTPercentile
+	}
+
+	if len(highaf) == 0 && len(lowaf) == 0 {
+		ret.ALTREFDiff = 1 //hard coded value
+	}
 
 	return ret
 }
