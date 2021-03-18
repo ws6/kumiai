@@ -13,7 +13,7 @@ import (
 
 //loaf.go  -- parse the .vcf file with specific formats then fitler the AF values
 //Doc page -https://confluence.illumina.com/display/FBS/loaf+-+LOwer+half+Allele++Frequency
-
+// https://confluence.illumina.com/display/FBS/Percentile+Difference+of+Af+values
 const (
 	DEFAULT_ALLELE_FREQUENCY_CUTOFF = 0.5
 	DEFAULT_READ_DEPTH_CUTOFF       = 20
