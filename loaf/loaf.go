@@ -15,9 +15,10 @@ import (
 //Doc page -https://confluence.illumina.com/display/FBS/loaf+-+LOwer+half+Allele++Frequency
 // https://confluence.illumina.com/display/FBS/Percentile+Difference+of+Af+values
 const (
-	DEFAULT_ALLELE_FREQUENCY_CUTOFF = 0.5
-	DEFAULT_READ_DEPTH_CUTOFF       = 20
-	DEFAULT_FILTER                  = `PASS`
+	DEFAULT_ALLELE_FREQUENCY_CUTOFF  = 0.5
+	DEFAULT_READ_DEPTH_CUTOFF        = 20
+	DEFAULT_READ_DEPTH_CUTOFF_CONTAM = 10
+	DEFAULT_FILTER                   = `PASS`
 )
 
 type LoafParams struct {
@@ -153,6 +154,7 @@ func LoafOfVcfV2(ch chan []string, params *LoafParams) *Loaf {
 	// ret.FilteredAfMedian = 0
 	if params == nil {
 		params = NewDefaultLoafParams()
+		params.ReadDepthCutOff = DEFAULT_READ_DEPTH_CUTOFF_CONTAM
 	}
 
 	highaf := []float64{}
